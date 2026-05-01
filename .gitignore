@@ -1,0 +1,3 @@
+# Mengabaikan file environment yang berisi secret/API Key
+.env
+.env.local
