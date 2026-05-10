@@ -162,6 +162,30 @@ def midtrans_webhook():
         db.session.rollback()
         return jsonify({'status': 'error'}), 500
 
+# Endpoint to get transaction by order_id
+@pos_bp.route('/transactions/<order_id>', methods=['GET'])
+def get_transaction(order_id):
+    trx = Transaction.query.filter_by(order_id=order_id).first()
+    if not trx:
+        return jsonify({'message': 'Transaction not found'}), 404
+        
+    return jsonify({
+        'id': trx.id,
+        'order_id': trx.order_id,
+        'customer_name': trx.customer_name,
+        'customer_phone': trx.customer_phone,
+        'vehicle_id': trx.vehicle_id,
+        'vehicle_name': trx.vehicle_name,
+        'start_date': trx.start_date.isoformat() if trx.start_date else None,
+        'end_date': trx.end_date.isoformat() if trx.end_date else None,
+        'total_days': trx.total_days,
+        'total_amount': float(trx.total_amount),
+        'payment_type': trx.payment_type,
+        'payment_status': trx.payment_status,
+        'trx_status': trx.trx_status,
+        'created_at': trx.created_at.isoformat() if trx.created_at else None
+    }), 200
+
 # Endpoint to fetch active rentals
 @pos_bp.route('/transactions/active', methods=['GET'])
 def get_active_transactions():
