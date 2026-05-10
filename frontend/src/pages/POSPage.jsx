@@ -254,12 +254,12 @@ export default function POSPage() {
             </div>
             
             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
-               <input type="date" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.startDate} onChange={e => handleDateChange('startDate', e.target.value)} />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
+              <input type="date" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.startDate} onChange={e => handleDateChange('startDate', e.target.value)} />
             </div>
             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Selesai</label>
-               <input type="date" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.endDate} onChange={e => handleDateChange('endDate', e.target.value)} />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Selesai</label>
+              <input type="date" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" value={formData.endDate} onChange={e => handleDateChange('endDate', e.target.value)} />
             </div>
 
             {/* Vehicle Selector */}
@@ -395,9 +395,9 @@ export default function POSPage() {
             }`}
           >
             {isLoading ? (
-               <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             ) : (
-               <>Proses Pembayaran</>
+              <>Proses Pembayaran</>
             )}
           </button>
         </div>
