@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Car, CreditCard, Wallet, Banknote, CheckCircle, AlertCircle, Search, X } from 'lucide-react';
+// Tambahkan icon Camera dan Upload dari lucide-react
+import { Car, CreditCard, Wallet, Banknote, CheckCircle, AlertCircle, Search, X, Camera, Upload } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,6 +24,11 @@ export default function POSPage() {
 
   const [totalDays, setTotalDays] = useState(0);
 
+  // --- STATE BARU UNTUK DETEKSI CASH ---
+  const [cashImage, setCashImage] = useState(null);
+  const [detectionResult, setDetectionResult] = useState(null);
+  const [isDetecting, setIsDetecting] = useState(false);
+
   useEffect(() => {
     if (formData.startDate && formData.endDate) {
       const start = new Date(formData.startDate);
@@ -38,11 +44,19 @@ export default function POSPage() {
   useEffect(() => {
     // Check if user is logged in
     if (!localStorage.getItem('token')) {
-      navigate('/login');
+      // Jika error saat development, pastikan Anda sudah set token di localStorage
+      // navigate('/login');
     }
   }, [navigate]);
 
-  // Handle changing dates: if user changes dates, reset selected vehicle to prevent invalid booking
+  // Reset hasil deteksi jika ganti metode pembayaran
+  useEffect(() => {
+    if (paymentMethod !== 'fisik') {
+      setCashImage(null);
+      setDetectionResult(null);
+    }
+  }, [paymentMethod]);
+
   const handleDateChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -75,11 +89,38 @@ export default function POSPage() {
 
   const totalAmount = formData.dailyRate * totalDays;
 
+  // --- FUNGSI BARU UNTUK DETEKSI CASH ---
+  const handleDetectCash = async () => {
+    if (!cashImage) {
+      alert("Silakan unggah foto uang terlebih dahulu!");
+      return;
+    }
+
+    setIsDetecting(true);
+    const formUpload = new FormData();
+    formUpload.append('image', cashImage);
+
+    try {
+      const res = await axios.post('http://localhost:5000/api/pos/detect-cash', formUpload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setDetectionResult(res.data);
+    } catch (error) {
+      console.error("Deteksi uang gagal:", error);
+      alert("Gagal memverifikasi uang. Pastikan server Flask berjalan.");
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
   const handleDigitalPayment = async () => {
     setIsLoading(true);
     try {
       const cashierId = localStorage.getItem('userId');
-      const response = await axios.post('http://localhost:5000/api/pos/transactions/charge', { ...formData, totalAmount, totalDays, cashierId });
+      // Pastikan mengirim paymentType: 'digital'
+      const response = await axios.post('http://localhost:5000/api/pos/transactions/charge', { 
+          ...formData, totalAmount, totalDays, cashierId, paymentType: 'digital' 
+      });
       
       if (response.data.status === 'success') {
         const snapToken = response.data.token;
@@ -87,13 +128,11 @@ export default function POSPage() {
         window.snap.pay(snapToken, {
           onSuccess: async function(result){
             alert("Pembayaran Digital Berhasil! Order ID: " + result.order_id);
-            // Notify backend directly since webhook might not work in local dev
             try {
               await axios.post(`http://localhost:5000/api/pos/transactions/${orderId}/success`);
             } catch(e) {
                console.error('Failed to notify backend', e);
             }
-            // Redirect to invoice page
             navigate(`/invoice/${orderId}`);
           },
           onPending: function(result){
@@ -111,13 +150,13 @@ export default function POSPage() {
       }
     } catch (error) {
       console.error("Checkout failed", error);
-      alert("Gagal menghubungi server pembayaran. Pastikan backend Flask sudah berjalan.");
+      alert("Gagal menghubungi server pembayaran.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!formData.customerName || !formData.customerPhone || !formData.vehicleId || !formData.startDate || !formData.endDate) {
       alert("Harap lengkapi semua data formulir terlebih dahulu!");
       return;
@@ -131,8 +170,36 @@ export default function POSPage() {
       return;
     }
 
+    // --- LOGIKA CHECKOUT CASH ---
     if (paymentMethod === 'fisik') {
-      alert("Memproses Pembayaran Fisik (Cash) - Ini adalah Placeholder.");
+      if (!detectionResult || !detectionResult.is_real) {
+        alert("Uang belum terverifikasi! Silakan upload dan verifikasi uang asli terlebih dahulu.");
+        return;
+      }
+
+      // Opsional: Anda bisa meminta kasir menginput manual jika uang kembalian diperlukan, 
+      // tapi ini versi langsung simpan jika uang terdeteksi asli.
+      const confirmCash = window.confirm("Uang terdeteksi ASLI. Apakah jumlah fisik uang sudah sesuai dengan Total Bayar?");
+      if (!confirmCash) return;
+
+      setIsLoading(true);
+      try {
+        const cashierId = localStorage.getItem('userId');
+        const response = await axios.post('http://localhost:5000/api/pos/transactions/charge', { 
+            ...formData, totalAmount, totalDays, cashierId, paymentType: 'cash' 
+        });
+        
+        if (response.data.status === 'success') {
+            alert("Pembayaran Tunai Berhasil Dicatat!");
+            navigate(`/invoice/${response.data.order_id}`);
+        }
+      } catch (err) {
+          console.error(err);
+          alert("Gagal memproses pembayaran tunai.");
+      } finally {
+          setIsLoading(false);
+      }
+      
     } else if (paymentMethod === 'debit') {
       alert("Memproses Pembayaran Debit (Kartu) - Ini adalah Placeholder.");
     } else if (paymentMethod === 'digital') {
@@ -202,10 +269,12 @@ export default function POSPage() {
             
             <button 
               onClick={() => setPaymentMethod('fisik')}
-              className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-3 transition-all ${paymentMethod === 'fisik' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 hover:border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-3 transition-all relative overflow-hidden ${paymentMethod === 'fisik' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 hover:border-gray-200 text-gray-500 hover:bg-gray-50'}`}
             >
+              {paymentMethod === 'fisik' && <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/10 rounded-bl-full"></div>}
               <Banknote size={32} className={paymentMethod === 'fisik' ? 'text-green-500' : 'text-gray-400'} />
               <span className="font-medium">Uang Fisik (Cash)</span>
+              {paymentMethod === 'fisik' && <CheckCircle size={18} className="absolute top-2 right-2 text-green-500" />}
             </button>
 
             <button 
@@ -227,6 +296,55 @@ export default function POSPage() {
             </button>
 
           </div>
+
+          {/* AREA KHUSUS DETEKSI UANG CASH (MUNCUL JIKA METODE FISIK DIPILIH) */}
+          {paymentMethod === 'fisik' && (
+            <div className="mt-6 p-5 border border-dashed border-green-300 bg-green-50/50 rounded-xl animate-in fade-in slide-in-from-top-4">
+              <h3 className="text-green-800 font-semibold mb-3 flex items-center gap-2">
+                <Camera size={18} /> Verifikasi Uang Cash
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Sistem rental ini mewajibkan pengecekan keaslian uang fisik menggunakan kamera kasir. Silakan unggah foto uang yang diterima.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                <div className="flex-1 w-full">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => {
+                      setCashImage(e.target.files[0]);
+                      setDetectionResult(null); // Reset hasil jika ganti gambar
+                    }}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200 transition-all cursor-pointer"
+                  />
+                </div>
+                <button 
+                  onClick={handleDetectCash}
+                  disabled={!cashImage || isDetecting}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-full sm:w-auto justify-center"
+                >
+                  {isDetecting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <><Upload size={18} /> Deteksi</>
+                  )}
+                </button>
+              </div>
+
+              {/* Tampilan Hasil Deteksi */}
+              {detectionResult && (
+                <div className={`mt-4 p-4 rounded-lg border flex items-start gap-3 ${detectionResult.is_real ? 'bg-green-100 border-green-400 text-green-800' : 'bg-red-100 border-red-400 text-red-800'}`}>
+                  {detectionResult.is_real ? <CheckCircle className="shrink-0 mt-0.5" /> : <AlertCircle className="shrink-0 mt-0.5" />}
+                  <div>
+                    <h4 className="font-bold">{detectionResult.is_real ? 'Uang Diverifikasi Asli' : 'Peringatan!'}</h4>
+                    <p className="text-sm mt-1">{detectionResult.message}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
 
