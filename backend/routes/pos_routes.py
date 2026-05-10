@@ -77,7 +77,35 @@ def charge_transaction():
         start_date = datetime.datetime.strptime(data['startDate'], '%Y-%m-%d').date()
         end_date = datetime.datetime.strptime(data['endDate'], '%Y-%m-%d').date()
         
+<<<<<<< HEAD
         payment_type = data.get('paymentType', 'digital')
+=======
+        param = {
+            "transaction_details": {
+                "order_id": order_id,
+                "gross_amount": gross_amount
+            },
+            "customer_details": {
+                "first_name": data['customerName'],
+                "phone": data['customerPhone']
+            },
+            "item_details": [{
+                "id": data['vehicleId'],
+                "price": data['dailyRate'],
+                "quantity": data['totalDays'],
+                "name": data['vehicleName']
+            }],
+            "enabled_payments": [
+                "bca_va", "bni_va", "bri_va", "cimb_va", "other_va", 
+                "gopay", "shopeepay", "qris", "echannel", 
+            ]
+        }
+        
+        transaction = snap.create_transaction(param)
+        snap_token = transaction['token']
+        
+        
+>>>>>>> 81b739ec7966e8e1e164d1689a0bf342da0d8159
         cashier_id_raw = data.get('cashierId')
         cashier_id = int(cashier_id_raw) if cashier_id_raw else None
         
@@ -193,6 +221,34 @@ def midtrans_webhook():
         db.session.rollback()
         return jsonify({'status': 'error'}), 500
 
+<<<<<<< HEAD
+=======
+# Endpoint to get transaction by order_id
+@pos_bp.route('/transactions/<order_id>', methods=['GET'])
+def get_transaction(order_id):
+    trx = Transaction.query.filter_by(order_id=order_id).first()
+    if not trx:
+        return jsonify({'message': 'Transaction not found'}), 404
+        
+    return jsonify({
+        'id': trx.id,
+        'order_id': trx.order_id,
+        'customer_name': trx.customer_name,
+        'customer_phone': trx.customer_phone,
+        'vehicle_id': trx.vehicle_id,
+        'vehicle_name': trx.vehicle_name,
+        'start_date': trx.start_date.isoformat() if trx.start_date else None,
+        'end_date': trx.end_date.isoformat() if trx.end_date else None,
+        'total_days': trx.total_days,
+        'total_amount': float(trx.total_amount),
+        'payment_type': trx.payment_type,
+        'payment_status': trx.payment_status,
+        'trx_status': trx.trx_status,
+        'created_at': trx.created_at.isoformat() if trx.created_at else None
+    }), 200
+
+# Endpoint to fetch active rentals
+>>>>>>> 81b739ec7966e8e1e164d1689a0bf342da0d8159
 @pos_bp.route('/transactions/active', methods=['GET'])
 def get_active_transactions():
     active_trx = Transaction.query.filter_by(trx_status='active', payment_status='success').all()

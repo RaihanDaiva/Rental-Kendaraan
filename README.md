@@ -43,6 +43,9 @@ MIDTRANS_IS_PRODUCTION=False
 # Security
 KTP_ENCRYPTION_KEY=W2-P6m3c_V02V2-J53lX5w6b-w7y_W1v2B8c1K4p1wA=
 ```
+   * Salin midtrans client key ke file `frontend/index.html` pada bagian `data-client-key` di line 9
+<img width="1090" height="298" alt="image" src="https://github.com/user-attachments/assets/4857f3ad-62a8-450a-bdc7-7c84d59d95be" />
+
 
 4. Import file **.sql:**
    * Import file **pos_rental_schema.sql** di database masing-masing

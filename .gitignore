@@ -1,3 +1,10 @@
 # Mengabaikan file environment yang berisi secret/API Key
-.env
 .env.local
+node_modules/
+frontend/node_modules/
+backend/__pycache__/
+backend/env/
+.env
+*.pyc
+dist/
+.vite/
