@@ -72,7 +72,11 @@ def charge_transaction():
                 "price": data['dailyRate'],
                 "quantity": data['totalDays'],
                 "name": data['vehicleName']
-            }]
+            }],
+            "enabled_payments": [
+                "bca_va", "bni_va", "bri_va", "cimb_va", "other_va", 
+                "gopay", "shopeepay", "qris", "echannel", 
+            ]
         }
         
         transaction = snap.create_transaction(param)
