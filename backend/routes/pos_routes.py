@@ -71,48 +71,36 @@ def charge_transaction():
     try:
         data = request.json
         order_id = f"TRX-{uuid.uuid4().hex[:8].upper()}"
-        gross_amount = int(data['totalAmount'])
+        total_amount_raw = data.get('totalAmount')
+        if total_amount_raw is None or total_amount_raw == '' or str(total_amount_raw).lower() == 'undefined':
+            return jsonify({'status': 'error', 'message': 'totalAmount tidak valid atau belum dihitung'}), 400
+        try:
+            gross_amount = int(float(total_amount_raw))
+        except (ValueError, TypeError):
+            return jsonify({'status': 'error', 'message': f'totalAmount tidak valid: {total_amount_raw}'}), 400
         
         # Parse dates
         start_date = datetime.datetime.strptime(data['startDate'], '%Y-%m-%d').date()
         end_date = datetime.datetime.strptime(data['endDate'], '%Y-%m-%d').date()
         
-# Mengambil tipe pembayaran dari frontend
+        # Mengambil tipe pembayaran dari frontend
         payment_type = data.get('paymentType', 'digital')
-
-        # Menyiapkan parameter transaksi untuk dikirim ke Midtrans
-        param = {
-            "transaction_details": {
-                "order_id": order_id,
-                "gross_amount": gross_amount
-            },
-            "customer_details": {
-                "first_name": data.get('customerName'),
-                "phone": data.get('customerPhone')
-            },
-            "item_details": [{
-                "id": data.get('vehicleId'),
-                "price": data.get('dailyRate'),
-                "quantity": data.get('totalDays'),
-                "name": data.get('vehicleName')
-            }],
-            "enabled_payments": [
-                "bca_va", "bni_va", "bri_va", "cimb_va", "other_va", 
-                "gopay", "shopeepay", "qris", "echannel"
-            ]
-        }
         
-        # Memanggil API Midtrans menggunakan library Snap
-        transaction = snap.create_transaction(param)
-        snap_token = transaction['token']
+        # Ambil cashier ID
         cashier_id_raw = data.get('cashierId')
-        cashier_id = int(cashier_id_raw) if cashier_id_raw else None
+        cashier_id = None
+        if cashier_id_raw is not None and str(cashier_id_raw).lower() != 'undefined' and str(cashier_id_raw) != '':
+            try:
+                cashier_id = int(cashier_id_raw)
+            except (ValueError, TypeError):
+                cashier_id = None
         
         snap_token = None
         payment_status = 'pending'
         
         # Pisahkan logika Digital (Midtrans) dan Cash
-        if payment_type == 'digital':
+        if payment_type == 'digital' or payment_type == 'debit':
+            # Menyiapkan parameter transaksi untuk dikirim ke Midtrans
             param = {
                 "transaction_details": {
                     "order_id": order_id,
@@ -127,7 +115,16 @@ def charge_transaction():
                     "price": data['dailyRate'],
                     "quantity": data['totalDays'],
                     "name": data['vehicleName']
-                }]
+                }],
+                "enabled_payments": [
+                    "credit_card",
+                    "bca_va", "bni_va", "bri_va", "cimb_va", "other_va", 
+                    "gopay", "shopeepay", "qris", "echannel"
+                ],
+                "credit_card": {
+                    "secure": True,
+                    "save_card": False
+                }
             }
             transaction = snap.create_transaction(param)
             snap_token = transaction['token']

@@ -116,10 +116,16 @@ export default function POSPage() {
   const handleDigitalPayment = async () => {
     setIsLoading(true);
     try {
-      const cashierId = localStorage.getItem('userId');
-      // Pastikan mengirim paymentType: 'digital'
-      const response = await axios.post('http://localhost:5000/api/pos/transactions/charge', { 
-          ...formData, totalAmount, totalDays, cashierId, paymentType: 'digital' 
+      const cashierIdRaw = localStorage.getItem('userId');
+      const cashierId = cashierIdRaw && cashierIdRaw !== 'undefined' ? Number(cashierIdRaw) : null;
+      const response = await axios.post('http://localhost:5000/api/pos/transactions/charge', {
+          ...formData,
+          vehicleId: Number(formData.vehicleId) || formData.vehicleId,
+          dailyRate: Number(formData.dailyRate) || 0,
+          totalDays: Number(totalDays) || 0,
+          totalAmount: Number(totalAmount) || 0,
+          cashierId,
+          paymentType: 'digital'
       });
       
       if (response.data.status === 'success') {
@@ -131,7 +137,7 @@ export default function POSPage() {
             try {
               await axios.post(`http://localhost:5000/api/pos/transactions/${orderId}/success`);
             } catch(e) {
-               console.error('Failed to notify backend', e);
+              console.error('Failed to notify backend', e);
             }
             navigate(`/invoice/${orderId}`);
           },
@@ -150,7 +156,8 @@ export default function POSPage() {
       }
     } catch (error) {
       console.error("Checkout failed", error);
-      alert("Gagal menghubungi server pembayaran.");
+      const backendMessage = error.response?.data?.message || error.message || "Gagal menghubungi server pembayaran.";
+      alert(`Gagal menghubungi server pembayaran. ${backendMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -184,9 +191,16 @@ export default function POSPage() {
 
       setIsLoading(true);
       try {
-        const cashierId = localStorage.getItem('userId');
-        const response = await axios.post('http://localhost:5000/api/pos/transactions/charge', { 
-            ...formData, totalAmount, totalDays, cashierId, paymentType: 'cash' 
+        const cashierIdRaw = localStorage.getItem('userId');
+        const cashierId = cashierIdRaw && cashierIdRaw !== 'undefined' ? Number(cashierIdRaw) : null;
+        const response = await axios.post('http://localhost:5000/api/pos/transactions/charge', {
+            ...formData,
+            vehicleId: Number(formData.vehicleId) || formData.vehicleId,
+            dailyRate: Number(formData.dailyRate) || 0,
+            totalDays: Number(totalDays) || 0,
+            totalAmount: Number(totalAmount) || 0,
+            cashierId,
+            paymentType: 'cash'
         });
         
         if (response.data.status === 'success') {
@@ -195,13 +209,15 @@ export default function POSPage() {
         }
       } catch (err) {
           console.error(err);
-          alert("Gagal memproses pembayaran tunai.");
+          const backendMessage = err.response?.data?.message || err.message || "Gagal memproses pembayaran tunai.";
+          alert(`Gagal memproses pembayaran tunai. ${backendMessage}`);
       } finally {
           setIsLoading(false);
       }
-      
+    // --- LOGIKA CHECKOUT DIGITAL & DEBIT (MIDTRANS) ---
+    // Kedua metode ini digabung karena sama-sama diproses melalui gateway Midtrans
     } else if (paymentMethod === 'debit') {
-      alert("Memproses Pembayaran Debit (Kartu) - Ini adalah Placeholder.");
+    handleDigitalPayment();
     } else if (paymentMethod === 'digital') {
       handleDigitalPayment();
     }
