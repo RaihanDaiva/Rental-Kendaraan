@@ -20,6 +20,7 @@ export default function AdminLayout() {
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} /> },
     { name: 'Kendaraan', path: '/admin/vehicles', icon: <Car size={20} /> },
+    { name: 'Titipan (Konsinyasi)', path: '/admin/consignment', icon: <Receipt size={20} /> },
     { name: 'Transaksi', path: '/admin/transactions', icon: <Receipt size={20} /> },
     { name: 'Akun Kasir', path: '/admin/users', icon: <Users size={20} /> },
   ];

@@ -100,6 +100,15 @@ def charge_transaction():
         
         # Pisahkan logika Digital (Midtrans) dan Cash
         if payment_type == 'digital' or payment_type == 'debit':
+            enabled_payments = []
+            if payment_type == 'debit':
+                enabled_payments = ["credit_card"]
+            else:
+                enabled_payments = [
+                    "bca_va", "bni_va", "bri_va", "cimb_va", "other_va", 
+                    "gopay", "shopeepay", "ovo", "echannel"
+                ]
+
             # Menyiapkan parameter transaksi untuk dikirim ke Midtrans
             param = {
                 "transaction_details": {
@@ -116,16 +125,15 @@ def charge_transaction():
                     "quantity": data['totalDays'],
                     "name": data['vehicleName']
                 }],
-                "enabled_payments": [
-                    "credit_card",
-                    "bca_va", "bni_va", "bri_va", "cimb_va", "other_va", 
-                    "gopay", "shopeepay", "qris", "echannel"
-                ],
-                "credit_card": {
+                "enabled_payments": enabled_payments
+            }
+            
+            if payment_type == 'debit':
+                param["credit_card"] = {
                     "secure": True,
                     "save_card": False
                 }
-            }
+            
             transaction = snap.create_transaction(param)
             snap_token = transaction['token']
             payment_status = 'pending' 

@@ -25,8 +25,8 @@ export default function POSPage() {
   const [totalDays, setTotalDays] = useState(0);
 
   // --- STATE BARU UNTUK DETEKSI CASH ---
-  const [cashImage, setCashImage] = useState(null);
-  const [detectionResult, setDetectionResult] = useState(null);
+  const [cashScans, setCashScans] = useState([]);
+  const [currentCashImage, setCurrentCashImage] = useState(null);
   const [isDetecting, setIsDetecting] = useState(false);
 
   useEffect(() => {
@@ -52,8 +52,8 @@ export default function POSPage() {
   // Reset hasil deteksi jika ganti metode pembayaran
   useEffect(() => {
     if (paymentMethod !== 'fisik') {
-      setCashImage(null);
-      setDetectionResult(null);
+      setCashScans([]);
+      setCurrentCashImage(null);
     }
   }, [paymentMethod]);
 
@@ -88,23 +88,27 @@ export default function POSPage() {
   };
 
   const totalAmount = formData.dailyRate * totalDays;
+  const totalDideteksi = cashScans.reduce((sum, scan) => {
+    return scan.is_real ? sum + (Number(scan.nominal_raw) || 0) : sum;
+  }, 0);
 
   // --- FUNGSI BARU UNTUK DETEKSI CASH ---
   const handleDetectCash = async () => {
-    if (!cashImage) {
+    if (!currentCashImage) {
       alert("Silakan unggah foto uang terlebih dahulu!");
       return;
     }
 
     setIsDetecting(true);
     const formUpload = new FormData();
-    formUpload.append('image', cashImage);
+    formUpload.append('image', currentCashImage);
 
     try {
       const res = await axios.post('http://localhost:5000/api/pos/detect-cash', formUpload, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setDetectionResult(res.data);
+      setCashScans(prev => [...prev, res.data]);
+      setCurrentCashImage(null);
     } catch (error) {
       console.error("Deteksi uang gagal:", error);
       alert("Gagal memverifikasi uang. Pastikan server Flask berjalan.");
@@ -113,7 +117,7 @@ export default function POSPage() {
     }
   };
 
-  const handleDigitalPayment = async () => {
+  const handleDigitalPayment = async (method) => {
     setIsLoading(true);
     try {
       const cashierIdRaw = localStorage.getItem('userId');
@@ -125,7 +129,7 @@ export default function POSPage() {
           totalDays: Number(totalDays) || 0,
           totalAmount: Number(totalAmount) || 0,
           cashierId,
-          paymentType: 'digital'
+          paymentType: method
       });
       
       if (response.data.status === 'success') {
@@ -179,16 +183,20 @@ export default function POSPage() {
 
     // --- LOGIKA CHECKOUT CASH ---
     if (paymentMethod === 'fisik') {
-      if (!detectionResult || !detectionResult.is_real) {
-        alert("Uang belum terverifikasi! Silakan upload dan verifikasi uang asli terlebih dahulu.");
+      if (cashScans.length === 0) {
+        alert("Silakan unggah dan verifikasi uang fisik terlebih dahulu.");
         return;
       }
 
-      // Opsional: Anda bisa meminta kasir menginput manual jika uang kembalian diperlukan, 
-      // tapi ini versi langsung simpan jika uang terdeteksi asli.
-      const confirmCash = window.confirm("Uang terdeteksi ASLI. Apakah jumlah fisik uang sudah sesuai dengan Total Bayar?");
-      if (!confirmCash) return;
+      if (totalDideteksi < totalAmount) {
+        alert(`Uang kurang! Total uang ASLI yang dideteksi hanya Rp ${totalDideteksi.toLocaleString('id-ID')}, sedangkan total bayar adalah Rp ${totalAmount.toLocaleString('id-ID')}.`);
+        return;
+      }
 
+      let kembalian = totalDideteksi - totalAmount;
+      if (kembalian > 0) {
+        alert(`Uang kelebihan! Kembalian yang harus diberikan: Rp ${kembalian.toLocaleString('id-ID')}`);
+      }
       setIsLoading(true);
       try {
         const cashierIdRaw = localStorage.getItem('userId');
@@ -217,9 +225,9 @@ export default function POSPage() {
     // --- LOGIKA CHECKOUT DIGITAL & DEBIT (MIDTRANS) ---
     // Kedua metode ini digabung karena sama-sama diproses melalui gateway Midtrans
     } else if (paymentMethod === 'debit') {
-    handleDigitalPayment();
+      handleDigitalPayment('debit');
     } else if (paymentMethod === 'digital') {
-      handleDigitalPayment();
+      handleDigitalPayment('digital');
     }
   };
 
@@ -307,7 +315,7 @@ export default function POSPage() {
             >
               {paymentMethod === 'digital' && <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/10 rounded-bl-full"></div>}
               <Wallet size={32} className={paymentMethod === 'digital' ? 'text-indigo-500' : 'text-gray-400'} />
-              <span className="font-medium text-center leading-tight">Uang Digital<br/><span className="text-xs font-normal opacity-80">(QRIS/Gopay/VA)</span></span>
+              <span className="font-medium text-center leading-tight">Uang Digital<br/><span className="text-xs font-normal opacity-80">(Gopay/VA)</span></span>
               {paymentMethod === 'digital' && <CheckCircle size={18} className="absolute top-2 right-2 text-indigo-500" />}
             </button>
 
@@ -319,43 +327,54 @@ export default function POSPage() {
               <h3 className="text-green-800 font-semibold mb-3 flex items-center gap-2">
                 <Camera size={18} /> Verifikasi Uang Cash
               </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Sistem rental ini mewajibkan pengecekan keaslian uang fisik menggunakan kamera kasir. Silakan unggah foto uang yang diterima.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                <div className="flex-1 w-full">
-                  <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={(e) => {
-                      setCashImage(e.target.files[0]);
-                      setDetectionResult(null); // Reset hasil jika ganti gambar
-                    }}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200 transition-all cursor-pointer"
-                  />
+              {/* Tampilan Hasil History Deteksi */}
+              {cashScans.length > 0 && (
+                <div className="mb-6 space-y-3">
+                  {cashScans.map((scan, index) => (
+                    <div key={index} className={`p-4 rounded-lg border flex items-start gap-3 ${scan.is_real ? 'bg-green-100 border-green-400 text-green-800' : 'bg-red-100 border-red-400 text-red-800'}`}>
+                      {scan.is_real ? <CheckCircle className="shrink-0 mt-0.5" /> : <AlertCircle className="shrink-0 mt-0.5" />}
+                      <div>
+                        <h4 className="font-bold">{scan.is_real ? `Scan ${index + 1}: Uang Asli (Rp ${Number(scan.nominal_raw || 0).toLocaleString('id-ID')})` : `Scan ${index + 1}: Peringatan Uang Palsu/Tidak Dikenal!`}</h4>
+                        <p className="text-sm mt-1">{scan.message}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <button 
-                  onClick={handleDetectCash}
-                  disabled={!cashImage || isDetecting}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-full sm:w-auto justify-center"
-                >
-                  {isDetecting ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    <><Upload size={18} /> Deteksi</>
-                  )}
-                </button>
-              </div>
+              )}
 
-              {/* Tampilan Hasil Deteksi */}
-              {detectionResult && (
-                <div className={`mt-4 p-4 rounded-lg border flex items-start gap-3 ${detectionResult.is_real ? 'bg-green-100 border-green-400 text-green-800' : 'bg-red-100 border-red-400 text-red-800'}`}>
-                  {detectionResult.is_real ? <CheckCircle className="shrink-0 mt-0.5" /> : <AlertCircle className="shrink-0 mt-0.5" />}
-                  <div>
-                    <h4 className="font-bold">{detectionResult.is_real ? 'Uang Diverifikasi Asli' : 'Peringatan!'}</h4>
-                    <p className="text-sm mt-1">{detectionResult.message}</p>
+              {/* INPUT DETEKSI UANG (MUNCUL JIKA TOTAL UANG ASLI MASIH KURANG DARI TOTAL BAYAR ATAU BELUM ADA SCAN) */}
+              {(cashScans.length === 0 || totalDideteksi < totalAmount) ? (
+                <div className={cashScans.length > 0 ? "pt-4 border-t border-dashed border-green-300" : ""}>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {cashScans.length > 0 ? "Total uang asli belum mencukupi Total Bayar. Silakan unggah foto uang tambahan (Uang palsu tidak dihitung)." : "Sistem rental ini mewajibkan pengecekan keaslian uang fisik menggunakan kamera kasir. Silakan unggah foto uang yang diterima."}
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                    <div className="flex-1 w-full">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        key={cashScans.length}
+                        onChange={(e) => setCurrentCashImage(e.target.files[0])}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200 transition-all cursor-pointer"
+                      />
+                    </div>
+                    <button 
+                      onClick={handleDetectCash}
+                      disabled={!currentCashImage || isDetecting}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-full sm:w-auto justify-center"
+                    >
+                      {isDetecting ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      ) : (
+                        <><Upload size={18} /> Deteksi</>
+                      )}
+                    </button>
                   </div>
+                </div>
+              ) : (
+                <div className="pt-4 border-t border-dashed border-green-300 text-center">
+                  <p className="text-green-700 font-bold">Total uang fisik sudah mencukupi! Silakan lanjutkan ke Proses Pembayaran.</p>
                 </div>
               )}
             </div>
@@ -366,7 +385,7 @@ export default function POSPage() {
 
       {/* Right Column: Ringkasan & Checkout */}
       <div className="lg:col-span-1">
-        <div className="bg-white p-6 rounded-2xl shadow-xl sticky top-8 border border-gray-100">
+        <div className="bg-white p-6 rounded-2xl shadow-sm sticky top-8 border border-gray-100">
           <h3 className="text-gray-800 font-bold mb-4 uppercase tracking-wider text-sm border-b border-gray-100 pb-4">Ringkasan Pembayaran</h3>
           
           <div className="space-y-4 mb-6 pt-2">
@@ -383,6 +402,28 @@ export default function POSPage() {
               <span className="text-gray-500 font-medium">Total Bayar</span>
               <span className="text-3xl font-black text-indigo-600">Rp {totalAmount.toLocaleString('id-ID')}</span>
             </div>
+            
+            {paymentMethod === 'fisik' && cashScans.length > 0 && (
+              <>
+                <div className="h-px bg-gray-200 my-4"></div>
+                <div className="flex justify-between items-center text-gray-600">
+                  <span>Total Uang Dideteksi (AI)</span>
+                  <span className="font-medium text-emerald-600">Rp {totalDideteksi.toLocaleString('id-ID')}</span>
+                </div>
+                {totalDideteksi > totalAmount && (
+                  <div className="flex justify-between items-center text-gray-600 mt-2">
+                    <span>Kembalian</span>
+                    <span className="font-bold text-amber-500">Rp {(totalDideteksi - totalAmount).toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                {totalDideteksi < totalAmount && (
+                  <div className="flex justify-between items-center text-red-500 mt-2">
+                    <span>Kekurangan</span>
+                    <span className="font-bold">Rp {(totalAmount - totalDideteksi).toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <button 

@@ -4,8 +4,10 @@ USE pos_rental;
 -- --------------------------------------------------------
 -- Tabel `users` (Manajemen Akun & Kasir)
 -- --------------------------------------------------------
+DROP TABLE IF EXISTS `pks_contracts`;
+DROP TABLE IF EXISTS `consignment_contracts`;
 DROP TABLE IF EXISTS `transactions`;
-DROP TABLE IF EXISTS `vehicles`;
+DROP TABLE IF EXISTS `partners`;
 DROP TABLE IF EXISTS `customers`;
 DROP TABLE IF EXISTS `users`;
 
@@ -37,6 +39,20 @@ CREATE TABLE IF NOT EXISTS `customers` (
 
 
 -- --------------------------------------------------------
+-- Tabel `partners` (Mitra Konsinyasi)
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `partners` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(100) NOT NULL,
+  `nik` VARCHAR(20) NOT NULL UNIQUE,
+  `address` TEXT NOT NULL,
+  `phone` VARCHAR(20) NOT NULL,
+  `bank_account` VARCHAR(50) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- --------------------------------------------------------
 -- Tabel `vehicles` (Master Data Kendaraan)
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `vehicles` (
@@ -47,14 +63,33 @@ CREATE TABLE IF NOT EXISTS `vehicles` (
   `status` ENUM('available', 'rented', 'maintenance') DEFAULT 'available',
   `daily_rate` DECIMAL(10,2) NOT NULL,
   `image_url` VARCHAR(255) NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  `partner_id` INT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`partner_id`) REFERENCES `partners`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data Dummy Kendaraan
-INSERT INTO `vehicles` (`plate_number`, `brand_model`, `vehicle_type`, `status`, `daily_rate`, `image_url`) VALUES
-('D 1234 ABC', 'Toyota Avanza 2023', 'car', 'available', 350000.00, 'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=500&q=80'),
-('D 5678 DEF', 'Honda Vario 160', 'motorcycle', 'available', 100000.00, 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fd?w=500&q=80'),
-('B 9999 XYZ', 'Honda Brio Satya', 'car', 'available', 300000.00, 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=500&q=80');
+INSERT INTO `vehicles` (`plate_number`, `brand_model`, `vehicle_type`, `status`, `daily_rate`, `image_url`, `partner_id`) VALUES
+('D 1234 ABC', 'Toyota Avanza 2023', 'car', 'available', 350000.00, 'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=500&q=80', NULL),
+('D 5678 DEF', 'Honda Vario 160', 'motorcycle', 'available', 100000.00, 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fd?w=500&q=80', NULL),
+('B 9999 XYZ', 'Honda Brio Satya', 'car', 'available', 300000.00, 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=500&q=80', NULL);
+
+-- --------------------------------------------------------
+-- Tabel `pks_contracts` (Perjanjian Kerja Sama Penitipan)
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `pks_contracts` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `contract_number` VARCHAR(50) NOT NULL UNIQUE,
+  `partner_id` INT NOT NULL,
+  `vehicle_id` INT NOT NULL,
+  `start_date` DATE NOT NULL,
+  `end_date` DATE NOT NULL,
+  `profit_share_partner` INT NOT NULL COMMENT 'Persentase mitra',
+  `status` ENUM('active', 'expired', 'terminated') DEFAULT 'active',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`partner_id`) REFERENCES `partners`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 -- --------------------------------------------------------

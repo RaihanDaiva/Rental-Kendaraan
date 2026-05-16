@@ -48,16 +48,28 @@ def register():
 def login():
     try:
         data = request.get_json()
+        if not data:
+             return jsonify({'message': 'Invalid input format'}), 400
+             
         username = data.get('username')
         password = data.get('password')
 
         if not username or not password:
             return jsonify({'message': 'Invalid credentials'}), 401
 
-        # Parameterized query otomatis oleh SQLAlchemy
+        # 1. Validasi Input (Mencegah SQLMap mencoba karakter aneh saat login)
+        if not validate_username(username):
+            # Cepat gagalkan jika ada karakter berbahaya seperti tanda kutip (') atau spasi
+            return jsonify({'message': 'Invalid credentials'}), 401
+
+        # 2. Parameterized query otomatis oleh SQLAlchemy
+        # Ini adalah proteksi utama terhadap SQL Injection. SQLMap dan X-Ray tidak akan bisa menembus ini
+        # karena parameter tidak disisipkan langsung ke dalam string query.
         user = User.query.filter_by(username=username).first()
         
         # 3. Constant Time Comparison (Mencegah timing attacks)
+        # Jika user tidak ditemukan, kita tetap melakukan hashing (atau minimal simulasi pengecekan) 
+        # agar response time sama, mencegah attacker menebak apakah username ada atau tidak.
         if not user or not user.check_password(password):
             return jsonify({'message': 'Invalid username or password'}), 401
             

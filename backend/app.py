@@ -5,6 +5,7 @@ from models import db
 from routes.pos_routes import pos_bp
 from routes.auth_routes import auth_bp
 from routes.admin_routes import admin_bp
+from routes.partner_routes import partner_bp
 
 def create_app():
     app = Flask(__name__)
@@ -17,6 +18,7 @@ def create_app():
     app.register_blueprint(pos_bp, url_prefix='/api/pos')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(partner_bp, url_prefix='/api/partners')
     
     with app.app_context():
         # db.create_all() # Commented out to avoid overriding phpMyAdmin schema manually if they use the SQL file

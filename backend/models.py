@@ -28,6 +28,7 @@ class Vehicle(db.Model):
     status = db.Column(db.String(20), default='available')
     daily_rate = db.Column(db.Numeric(10, 2), nullable=False)
     image_url = db.Column(db.String(255), nullable=True)
+    partner_id = db.Column(db.Integer, db.ForeignKey('partners.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Transaction(db.Model):
@@ -59,3 +60,24 @@ class Transaction(db.Model):
     snap_token = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Partner(db.Model):
+    __tablename__ = 'partners'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    nik = db.Column(db.String(20), unique=True, nullable=False)
+    address = db.Column(db.Text, nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    bank_account = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class PksContract(db.Model):
+    __tablename__ = 'pks_contracts'
+    id = db.Column(db.Integer, primary_key=True)
+    contract_number = db.Column(db.String(50), unique=True, nullable=False)
+    partner_id = db.Column(db.Integer, db.ForeignKey('partners.id'), nullable=False)
+    vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicles.id'), nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    profit_share_partner = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), default='active')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

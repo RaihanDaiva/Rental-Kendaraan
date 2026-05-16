@@ -9,7 +9,7 @@ class Config:
     
     # SQLAlchemy Configuration
     db_user = os.environ.get('DB_USER', 'root')
-    db_password = os.environ.get('DB_PASSWORD', '')
+    db_password = os.environ.get('DB_PASSWORD', 'raihan123')
     db_host = os.environ.get('DB_HOST', 'localhost')
     db_name = os.environ.get('DB_NAME', 'pos_rental')
     
